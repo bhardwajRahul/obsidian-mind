@@ -10,12 +10,26 @@
  * checklist and routes through the same `triggerDebouncedRefresh`
  * entry the PostToolUse hook uses — one debounce contract, one spawn
  * shape, zero drift between the two paths.
+ *
+ * Output is JSON on every agent, never plain text. Codex surfaced this by
+ * failing loudly — its Stop protocol rejects non-JSON stdout — but the text
+ * path was never read anywhere: Gemini's SessionEnd contract forbids plain
+ * stdout, and Claude Code sends non-exempt Stop stdout to the debug log
+ * rather than to the user or the model. A checklist nobody receives is the
+ * same bug in three places, so all three get the one field they agree on,
+ * `systemMessage`. Emitting it unconditionally is also what keeps this
+ * script agent-agnostic: no flag, and no sniffing the payload to guess who
+ * is calling.
  */
 
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readStdinJson } from "./lib/hook-io.ts";
+import {
+	readStdinJson,
+	writeSilentHookOutput,
+	writeSystemMessage,
+} from "./lib/hook-io.ts";
 import { triggerDebouncedRefresh } from "./lib/qmd-refresh.ts";
 import {
 	formatActiveHygiene,
@@ -39,7 +53,14 @@ type HookInput = {
 };
 
 const input = await readStdinJson<HookInput>();
-if (input?.stop_hook_active === true) process.exit(0);
+// Re-entry by a secondary agent: say nothing and spawn no second refresh,
+// but still emit the empty envelope rather than zero bytes — see
+// writeSilentHookOutput for why "sometimes silent, sometimes JSON" is the
+// weaker contract.
+if (input?.stop_hook_active === true) {
+	writeSilentHookOutput();
+	process.exit(0);
+}
 
 const checklist = [
 	"Session end checklist:",
@@ -71,13 +92,15 @@ const hygieneLines = formatActiveHygiene(
 	),
 );
 
-process.stdout.write(
+// No trailing newline: this is a message rendered by the agent's UI, not a
+// line written to a stream.
+const message =
 	checklist +
-		(hygieneLines.length > 0
-			? "\n\nVault Hygiene (drift detected):\n" + hygieneLines.join("\n")
-			: "") +
-		"\n",
-);
+	(hygieneLines.length > 0
+		? "\n\nVault Hygiene (drift detected):\n" + hygieneLines.join("\n")
+		: "");
+
+writeSystemMessage(message);
 
 triggerDebouncedRefresh({
 	sentinelPath: SENTINEL_PATH,

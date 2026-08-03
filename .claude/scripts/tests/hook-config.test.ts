@@ -123,3 +123,35 @@ describe("hook config — CWD-independent script resolution (issue #45)", () => 
 		});
 	}
 });
+
+/**
+ * The session-end checklist is one script with one output contract. It used
+ * to be tempting to give Codex a `--json` flag, because Codex is the only
+ * agent that *fails* on plain-text stdout — but Gemini ignores it and Claude
+ * Code buries it, so the flag would have encoded a per-agent difference that
+ * does not exist. The script now always emits the JSON envelope, which means
+ * no config may pass it agent-specific arguments.
+ */
+describe("hook config — the checklist hook is invoked identically everywhere", () => {
+	for (const { label, path } of configs) {
+		const checklistCommands = eachNodeHookCommand(loadConfig(path))
+			.map(({ command }) => command)
+			.filter((command) => command.includes("stop-checklist.ts"));
+
+		test(`${label} wires the checklist hook exactly once`, () => {
+			assert.equal(
+				checklistCommands.length,
+				1,
+				`expected ${path} to invoke stop-checklist.ts once — got ${checklistCommands.length}`,
+			);
+		});
+
+		test(`${label} passes the checklist hook no arguments`, () => {
+			assert.match(
+				checklistCommands[0] ?? "",
+				/stop-checklist\.ts"$/,
+				`${path} must invoke stop-checklist.ts with no trailing arguments — its output contract is the same for every agent`,
+			);
+		});
+	}
+});
