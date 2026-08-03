@@ -1,20 +1,10 @@
 # Changelog
 
+## v8.3.2 — 2026-08-03
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### Fixed
+- emit the session-end checklist as JSON on every agent
+- changelog generator no longer accumulates blank lines each release
 
 ## v8.3.1 — 2026-07-31
 
