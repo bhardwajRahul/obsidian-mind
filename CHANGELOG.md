@@ -1,5 +1,25 @@
 # Changelog
 
+## v8.3.3 — 2026-08-17
+
+### Added
+- /om-correct sweeps a corrected fact, and preserves the record
+
+### Changed
+- state when a decision earns a record
+- a new guard counts as landed once it has demonstrated a red
+- Add Ko-fi funding link to FUNDING.yml
+
+### Fixed
+- a retired claim is served only when its correction is served too
+- a double-quoted alias with an escaped quote never matched its link
+- a comma in a superseding title severs the correction link
+- manifest-check compared platform paths to posix globs
+- a superseded memory reaches only where its correction reaches
+- the markup refusal names the failure, not only the field
+- a CRLF note lost every alias, and three shapes lost some
+- a YAML-escaped apostrophe in an alias never matched its link
+
 ## v8.3.2 — 2026-08-03
 
 ### Fixed

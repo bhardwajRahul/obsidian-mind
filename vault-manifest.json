@@ -1,7 +1,7 @@
 {
   "template": "obsidian-mind",
-  "version": "8.3.2",
-  "released": "2026-08-03",
+  "version": "8.3.3",
+  "released": "2026-08-17",
   "qmd_index": "",
   "qmd_min_version": "2.0.0",
   "open_loop_dirs": [
@@ -207,6 +207,15 @@
         ".claude/scripts/om-mcp.mjs",
         ".claude/scripts/lib/memory-write.ts",
         "bases/Memories.base"
+      ],
+      "missing": [
+        ".claude/agents/correction-sweep.md"
+      ]
+    },
+    "v8.3.3": {
+      "exists": [
+        ".claude/agents/correction-sweep.md",
+        ".claude/commands/om-correct.md"
       ]
     }
   },
