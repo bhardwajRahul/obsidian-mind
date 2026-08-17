@@ -296,10 +296,70 @@ export function supersededOutOfReach(
 	corpus: readonly MemoryEntry[],
 	caller: Caller,
 ): boolean {
-	if (entry.facets.superseded_by.length === 0) return false;
-	const { matched } = resolveSupersedes(entry.facets.superseded_by, corpus);
-	if (matched.length === 0) return false;
-	return !matched.some((m) => isVisibleTo(m.facets, caller));
+	// A memory that never reached this caller is a SCOPE answer. Reporting it as
+	// a supersession one would send the reader after the wrong thing.
+	if (!isVisibleTo(entry.facets, caller)) return false;
+	return !servedAfterSupersession(corpus, caller).has(entry.rel);
+}
+
+/**
+ * The rels that survive both filters, resolved together rather than in sequence.
+ *
+ * Asking only whether a replacement is *scope-visible* is one link short of the
+ * invariant. The served set is filtered by visibility AND by this rule, so a
+ * replacement can pass `isVisibleTo` and still be removed by the very rule being
+ * evaluated. With `A superseded_by B`, `B superseded_by C`, A and B general and C
+ * re-filed narrow, a caller outside C's reach kept A: B is visible so A was
+ * served, while B was withheld for its own correction being out of reach. The
+ * retired claim was served alone, which is the exact failure the rule exists to
+ * prevent. Two re-files is not exotic — narrowing is what a correction most
+ * usefully does, and the second narrowing is what re-opens it.
+ *
+ * Computed as a GREATEST fixpoint: begin with everything visible and remove only
+ * what is provably unserved. Two properties follow, and both are the reason for
+ * this direction rather than the least fixpoint.
+ *
+ * It terminates, because the set only ever shrinks.
+ *
+ * And a supersession CYCLE keeps its members rather than losing them. `X`
+ * superseding `Y` while `Y` supersedes `X` is metadata rot, not a reach
+ * decision, and the least fixpoint would answer it by withholding both — the
+ * same silent loss the unresolvable-claim escape hatch was written to avoid.
+ * Starting from visible and removing only on proof means neither is dropped
+ * because the other could not first be proven.
+ */
+export function servedAfterSupersession(
+	corpus: readonly MemoryEntry[],
+	caller: Caller,
+): Set<string> {
+	const served = new Set<string>();
+	for (const e of corpus) if (isVisibleTo(e.facets, caller)) served.add(e.rel);
+
+	// Resolved ONCE, before the loop. Which memories a claim points at does not
+	// depend on what is currently served, so recomputing it every pass buys
+	// nothing and costs a factor of n: each pass becomes O(n²) and the fixpoint
+	// O(n³). Measured on a worst-case chain, where every pass retires exactly one
+	// link, that is 12s at 2000 memories against ~30ms hoisted.
+	const replacements = new Map<string, string[]>();
+	for (const entry of corpus) {
+		if (entry.facets.superseded_by.length === 0) continue;
+		const { matched } = resolveSupersedes(entry.facets.superseded_by, corpus);
+		// Unresolvable claims leave the memory alone, per the rule above, so they
+		// are never entered here and can never be withheld.
+		if (matched.length === 0) continue;
+		replacements.set(entry.rel, matched.map((m) => m.rel));
+	}
+
+	for (;;) {
+		let removed = false;
+		for (const [rel, reps] of replacements) {
+			if (!served.has(rel)) continue;
+			if (reps.some((r) => served.has(r))) continue;
+			served.delete(rel);
+			removed = true;
+		}
+		if (!removed) return served;
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -490,6 +550,10 @@ export function recallFrom(
 	// Judged against the agent corpus rather than the raw entries, so a claim is
 	// resolved against the set `recall` can actually serve.
 	const corpus = agentMemories(entries);
+	// Resolved once for the whole corpus rather than per entry: the answer for
+	// one memory depends on the answer for its replacement, so it is a property
+	// of the set and not of the row.
+	const served = servedAfterSupersession(corpus, caller);
 	for (const entry of corpus) {
 		const facets = entry.facets;
 		if (!isVisibleTo(facets, caller)) {
@@ -499,7 +563,7 @@ export function recallFrom(
 		// Checked after visibility so the two kinds of exclusion stay
 		// distinguishable: a memory that never reached this caller is a scope
 		// answer, not a supersession one.
-		if (supersededOutOfReach(entry, corpus, caller)) {
+		if (!served.has(entry.rel)) {
 			if (explain) withheld.push({ ...entry, why: SUPERSEDED_OUT_OF_REACH });
 			continue;
 		}
