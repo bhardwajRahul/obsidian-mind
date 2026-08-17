@@ -1,5 +1,15 @@
 # Changelog
 
+## v8.3.4 — 2026-08-17
+
+### Changed
+- give a question-shaped issue a route through the tracker
+- use Obsidian's documented block-comment form in the template
+
+### Fixed
+- audit what was refused, and serve a capture the tool refused
+- a memory whose title outruns the slug is linkable by its title
+
 ## v8.3.3 — 2026-08-17
 
 ### Added
