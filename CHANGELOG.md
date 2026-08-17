@@ -1,5 +1,11 @@
 # Changelog
 
+## v8.3.5 — 2026-08-17
+
+### Fixed
+- the markup refusal names the fields the server received
+- explain names the memory that superseded the withheld one
+
 ## v8.3.4 — 2026-08-17
 
 ### Changed
