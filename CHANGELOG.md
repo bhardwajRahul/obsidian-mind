@@ -1,5 +1,11 @@
 # Changelog
 
+## v8.4.0 — 2026-09-02
+
+### Fixed
+- the qmd search path was paying for a duplicate vector search and inheriting the wrong embedder
+- the markup refusal's recovery is a different shape, not the one that folded
+
 ## v8.3.6 — 2026-08-23
 
 ### Fixed
